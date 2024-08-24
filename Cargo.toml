@@ -14,37 +14,39 @@ db = [
 
 [dependencies]
 #snarkvm = { path = "../../src/snarkVM" }
-#snarkvm = { git = "https://github.com/HarukaMa/snarkVM.git", branch = "unchecked" }
-#snarkvm-algorithms = { git = "https://github.com/HarukaMa/snarkVM.git", branch = "unchecked" }
-snarkvm = "0.9.13"
-snarkvm-algorithms = "0.9.13"
-snarkvm-curves = "0.9.13"
-snarkvm-utilities = "0.9.13"
-snarkos-account = { git = "https://github.com/AleoHQ/snarkOS.git", branch = "testnet3" }
-snarkos-node-messages = { git = "https://github.com/AleoHQ/snarkOS.git", branch = "testnet3" }
-tracing = "0.1.37"
-tracing-log = "0.1.3"
-futures = "0.3.26"
-futures-util = "0.3.26"
+snarkvm = { git = "https://github.com/AleoNet/snarkVM.git", branch = "mainnet" }
+snarkvm-algorithms = { git = "https://github.com/AleoNet/snarkVM.git", branch = "mainnet" }
+snarkvm-curves = { git = "https://github.com/AleoNet/snarkVM.git", branch = "mainnet" }
+snarkvm-utilities = { git = "https://github.com/AleoNet/snarkVM.git", branch = "mainnet" }
+#snarkvm = "0.9.13"
+#snarkvm-algorithms = "0.9.13"
+#snarkvm-curves = "0.9.13"
+#snarkvm-utilities = "0.9.13"
+snarkos-account = { git = "https://github.com/AleoNet/snarkOS.git", branch = "mainnet" }
+snarkos-node-router-messages = { git = "https://github.com/AleoNet/snarkOS.git", branch = "mainnet" }
+tracing = "0.1.40"
+tracing-log = "0.2.0"
+futures = "0.3.30"
+futures-util = "0.3.30"
 rand = "0.8.5"
-tokio-util = "0.7.7"
-tokio-stream = "0.1.11"
-dirs = "4.0.0"
+tokio-util = "0.7.11"
+tokio-stream = "0.1.15"
+dirs = "5.0.1"
 bincode = "1.3.3"
-anyhow = "1.0.69"
-signal-hook = "0.3.15"
-bytes = "1.4.0"
-byteorder = "1.4.3"
-warp = "0.3.3"
+anyhow = "1.0.86"
+signal-hook = "0.3.17"
+bytes = "1.7.1"
+byteorder = "1.5.0"
+warp = "0.3.7"
 dotenv = "0.15.0"
-json-rpc-types = "1.2.0"
-semver = "1.0.16"
+json-rpc-types = "1.3.4"
+semver = "1.0.23"
 hex = "0.4.3"
-rayon = "1.6.1"
-num_cpus = "1.15.0"
-flurry = "0.4.0"
-savefile = "0.12.0"
-savefile-derive = "0.12.0"
+rayon = "1.10.0"
+num_cpus = "1.16.0"
+flurry = "0.5.1"
+savefile = "0.17.7"
+savefile-derive = "0.17.7"
 
 [dependencies.speedometer]
 path = "./speedometer"
@@ -60,36 +62,36 @@ version = "0.10.6"
 default-features = false
 
 [dependencies.tracing-subscriber]
-version = "0.3.16"
+version = "0.3.18"
 features = ["env-filter"]
 
 [dependencies.tokio-postgres]
-version = "0.7.7"
+version = "0.7.11"
 optional = true
 
 [dependencies.deadpool-postgres]
-version = "0.10.5"
+version = "0.14.0"
 optional = true
 features = ["rt_tokio_1"]
 
 [dependencies.reqwest]
-version = "0.11.14"
+version = "0.12.7"
 features = ["json"]
 
 [dependencies.parking_lot]
-version = "0.12.1"
+version = "0.12.3"
 features = ["serde"]
 
 [dependencies.serde]
-version = "1.0.152"
+version = "1.0.209"
 features = ["rc"]
 
 [dependencies.serde_json]
-version = "1.0.93"
+version = "1.0.127"
 features = ["preserve_order"]
 
 [dependencies.tokio]
-version = "1.25.0"
+version = "1.39.3"
 features = [
     "rt-multi-thread",
     "macros",
@@ -103,11 +105,11 @@ version = "0.3.1"
 features = ["futures-v0_3"]
 
 [dependencies.clap]
-version = "4.1.6"
+version = "4.5.16"
 features = ["derive"]
 
 [dev-dependencies]
-criterion= "0.4.0"
+criterion= "0.5.1"
 
 # testnet2 code, not updated to testnet3 so skip now
 #[[bench]]

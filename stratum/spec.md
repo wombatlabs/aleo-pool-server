@@ -1,6 +1,6 @@
 # Aleo Stratum Mining Protocol
 
-Version: 2.0.0 (Testnet3)
+Version: 3.0.0 (Mainnet)
 
 This document describes the stratum protocol for Aleo pool mining.
 
@@ -11,10 +11,6 @@ Some private mining protocols has emerged during the incentivized Testnet2 perio
 Stratum protocol is a widely used protocol for cryptocurrency mining, but many cryptocurrencies has suffered from not having a standardized stratum protocol - even though the stratum protocol is simple enough, there is still room for different variants of the protocol to appear. 
 
 This document will try to define a standard stratum protocol for Aleo pool mining.
-
-The mark `(Testnet3)` may appear in the document; this means the specific part of the protocol is dependent on the network implementation. Those parts might change later during Testnet3 and Mainnet.
-
-The current design of Testnet3 has a on-chain pool-like mechanism, so a Stratum protocol and third-party mining pools might not be too useful. That said, there might be situations where running a full node on every prover is not feasible and standalone pools and provers are desired. 
 
 ## Specification
 
@@ -60,7 +56,7 @@ Response:
 
 `SESSION_ID` (string): If the server supports session resuming, this field MUST be the same as the one sent by the miner in the request if there is one. Otherwise, it MUST be a new unique session ID. The server MUST set this field to `null` if it doesn't support session resuming.
 
-`SERVER_NONCE` (hex) `(Testnet3)`: Server nonce set by the server. See [Nonces](#Nonces) for more information. MUST be `null` if there is no server nonce set.
+`SERVER_COUNTER` (hex) `(Testnet3)`: Server counter set by the server. See [Counters](#Counters) for more information. MUST be `null` if there is no server nonce set.
 
 `ADDRESS` (string): The address of the pool. See [Address](#Address) for more information.
 
@@ -85,29 +81,29 @@ Response:
 
 `RESULT` (bool): If the worker is authorized, this field MUST be `true`. Otherwise, it MUST be `null`, and the server SHOULD give reasons in the `error` object.
 
-### `mining.set_target` `(Testnet3)`
+### `mining.set_target`
 This notification is used by the server to set the target share difficulty for the jobs after the current one.
 
 Request:
 
 ```json
-{"id": null, "method": "mining.set_target", "params": ["TARGET"]}
+{"id": null, "method": "mining.set_target", "params": [TARGET]}
 ```
 
 `TARGET` (int): The target share difficulty. This is the `proof_target` for the coinbase puzzle, which MUST be between `1` and `2 ^ 64 - 1`, where `1` means easiest.
 
-### `mining.notify` `(Testnet3)`
+### `mining.notify`
 This notification is used by the server to notify the miner about the new job.
 
 Request: 
     
 ```json
-{"id": null, "method": "mining.notify", "params": ["JOB_ID", "EPOCH_CHALLENGE", "ADDRESS", "CLEAN_JOBS"]}
+{"id": null, "method": "mining.notify", "params": ["JOB_ID", "EPOCH_HASH", "ADDRESS", "CLEAN_JOBS"]}
 ```
 
 `JOB_ID` (string): The job ID.
 
-`EPOCH_CHALLENGE` (hex): The epoch challenge.
+`EPOCH_HASH` (hex): The epoch hash.
 
 `ADDRESS` (string): The address of the pool. MAY be null if the address is not changed. See [Address](#Address) for more information.
 
@@ -115,37 +111,33 @@ Request:
 
 See [Notify](#Notify) for more information.
 
-### `mining.submit` `(Testnet3)`
+### `mining.submit`
 This method is used by miners to submit shares to the pool.
 
 Request:
 
 ```json
-{"id": 1, "method": "mining.submit", "params": ["WORKER_NAME", "JOB_ID", "NONCE", "COMMITMENT", "PROOF"]}
+{"id": 1, "method": "mining.submit", "params": ["WORKER_NAME", "JOB_ID", "COUNTER"]}
 ```
 
 `WORKER_NAME` (string): The name of the authorized worker.
 
 `JOB_ID` (string): The job ID.
 
-`NONCE` (hex): The nonce of the solution.
+`COUNTER` (string): The counter of the solution.
 
-`COMMITMENT` (hex): The commitment of the solution (`KZGCommitment`).
-
-`PROOF` (hex): The proof of the solution (`KZGProof`).
+See [Submit](#Submit) for information about potential attacks.
 
 
 ## Comments
 
-### Nonces
+### Counters
 
-In Testnet3, the nonce is a `u64` type. Pool operators might want to set a server nonce prefix to prevent miners from mining on the same nonce. The miner MUST use the server nonce prefix to construct the proof if it is set. The server nonce MUST be set to `null` if there is no server nonce set.
+In Mainnet, the counter is a `u64` type. Pool operators might want to set a server nonce prefix to prevent miners from mining on the same nonce. The miner MUST use the server nonce prefix to construct the proof if it is set. The server nonce MUST be set to `null` if there is no server nonce set.
 
 ### Notify
 
-The input of the prove function in Testnet3 is `epoch_challenge`, `address` and `nonce`. Those three parameters are used to construct the polynomial to be evaluated. Therefore, the prover need to have the address of the pool. 
-
-This format is specifically subject to change in later testnet periods and mainnet.
+The input of the prove function in Mainnet is `epoch_hash`, `address` and `counter`. Those three parameters are used to construct the solution. Therefore, the prover need to have the address of the pool. 
 
 ### Address
 
@@ -153,8 +145,15 @@ The pool server sends the pool address in the response of `subscribe` message as
 
 Some pools might want to change the pool address between different blocks, thus every `notify` message might contain an address to override the previous ones.
 
+### Submit
+
+Due to how the puzzle works, the pool server MUST calculate the solution target instead of accepting the target from the prover. Calculating the target requires solving the puzzle again with the submitted counter, so the pool server SHOULD implement some defense mechanism against DoS attacks from provers (by submitting random counters). 
 
 ## Version History
+
+### 3.0.0
+
+Updated to reflect the changes in Mainnet.
 
 ### 2.0.0
 

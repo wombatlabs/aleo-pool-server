@@ -16,13 +16,13 @@ pub enum StratumMessage {
 
     /// New job from the mining pool.
     /// See protocol specification for details about the fields.
-    /// (job_id, epoch_challenge, address, clean_jobs)
+    /// (job_id, epoch_hash, address, clean_jobs)
     Notify(String, String, Option<String>, bool),
 
     /// Submit shares to the pool.
     /// See protocol specification for details about the fields.
-    /// (id, worker_name, job_id, nonce, commitment, proof)
-    Submit(Id, String, String, String, String, String),
+    /// (id, worker_name, job_id, counter)
+    Submit(Id, String, String, String),
 
     /// (id, result, error)
     Response(Id, Option<ResponseParams>, Option<Error<()>>),

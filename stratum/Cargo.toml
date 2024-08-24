@@ -1,18 +1,18 @@
 [package]
 name = "aleo-stratum"
-version = "1.0.0"
+version = "3.0.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-json-rpc-types = "1.0.3"
-bytes = "1.1.0"
-serde = "1.0.138"
-serde_json = "1.0.82"
-erased-serde = "0.3.21"
-downcast-rs = "1.2.0"
+json-rpc-types = "1.3.4"
+bytes = "1.7.1"
+serde = "1.0.209"
+serde_json = "1.0.127"
+erased-serde = "0.4.5"
+downcast-rs = "1.2.1"
 
 [dependencies.tokio-util]
-version = "0.7.3"
+version = "0.7.11"
 features = ["codec"]
