@@ -34,8 +34,8 @@ pub struct Connection {
 static PEER_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
 static PEER_COMM_TIMEOUT: Duration = Duration::from_secs(180);
 
-static MIN_SUPPORTED_VERSION: Version = Version::new(2, 0, 0);
-static MAX_SUPPORTED_VERSION: Version = Version::new(2, 0, 0);
+static MIN_SUPPORTED_VERSION: Version = Version::new(3, 0, 0);
+static MAX_SUPPORTED_VERSION: Version = Version::new(3, 0, 0);
 
 impl Connection {
     pub async fn init(
