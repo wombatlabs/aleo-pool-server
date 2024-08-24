@@ -257,7 +257,7 @@ impl Decoder for StratumCodec {
                     StratumMessage::Notify(job_id, epoch_hash, address.cloned(), clean_jobs)
                 }
                 "mining.submit" => {
-                    if params.len() != 5 {
+                    if params.len() != 3 {
                         return Err(io::Error::new(io::ErrorKind::InvalidData, "Invalid params"));
                     }
                     let worker_name = unwrap_str_value(&params[0])?;
