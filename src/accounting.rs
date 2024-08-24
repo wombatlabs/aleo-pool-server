@@ -63,8 +63,8 @@ impl PPLNS {
         if home.is_none() {
             panic!("No home directory found");
         }
-        create_dir_all(home.as_ref().unwrap().join(".aleo_pool_testnet3_2")).unwrap();
-        let db_path = home.unwrap().join(".aleo_pool_testnet3_2/state");
+        create_dir_all(home.as_ref().unwrap().join(".aleo_pool_mainnet")).unwrap();
+        let db_path = home.unwrap().join(".aleo_pool_mainnet/state");
         if !db_path.exists() {
             return PPLNS {
                 queue: VecDeque::new(),
@@ -80,7 +80,7 @@ impl PPLNS {
         if home.is_none() {
             panic!("No home directory found");
         }
-        let db_path = home.unwrap().join(".aleo_pool_testnet3_2/state");
+        let db_path = home.unwrap().join(".aleo_pool_mainnet/state");
         save_file(db_path, 0, self).map_err(|e| anyhow!("Failed to save PPLNS state: {}", e))
     }
 
