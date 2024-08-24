@@ -267,16 +267,21 @@ impl Accounting {
 
     #[cfg(feature = "db")]
     async fn check_solution(&self, solution_id: &String) -> Result<bool> {
-        let client = reqwest::Client::new();
+        let client = reqwest::ClientBuilder::new()
+            .user_agent(format!("HarukaAleoPool/{}", env!("CARGO_PKG_VERSION")))
+            .build()?;
 
-        let result = &client
+        let resp = client
             .get(format!("{}/v2/solution/{}", self.explorer_url, solution_id))
             .send()
-            .await?
-            .json::<Value>()
             .await?;
-        let is_valid = result.as_null().is_none();
+
+        let is_valid = resp.status() == 200;
+        if resp.status() != 404 && !is_valid {
+            return Err(anyhow!("Failed to check solution: {}", resp.text().await?));
+        }
         if is_valid {
+            let result = resp.json::<Value>().await?;
             self.database
                 .set_solution_valid(
                     solution_id,
