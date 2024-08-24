@@ -121,7 +121,7 @@ CREATE TABLE pool.solution (
     "timestamp" bigint DEFAULT EXTRACT(epoch FROM now()) NOT NULL,
     paid boolean DEFAULT false NOT NULL,
     valid boolean DEFAULT false NOT NULL,
-    commitment text NOT NULL,
+    solution_id text NOT NULL,
     checked integer DEFAULT 0 NOT NULL
 );
 

@@ -14,7 +14,7 @@ pub enum StratumMessage {
     /// (difficulty_target)
     SetTarget(u64),
 
-    /// New job from the mining pool.
+    /// New job from the proving pool.
     /// See protocol specification for details about the fields.
     /// (job_id, epoch_hash, address, clean_jobs)
     Notify(String, String, Option<String>, bool),

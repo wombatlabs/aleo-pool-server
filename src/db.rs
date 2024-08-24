@@ -6,16 +6,17 @@ use deadpool_postgres::{
     Config,
     Hook,
     HookError,
-    HookErrorCause,
     Manager,
     ManagerConfig,
     Pool,
     RecyclingMethod,
     Runtime,
 };
-use snarkvm::prelude::{PuzzleCommitment, Testnet3};
+use snarkvm::ledger::puzzle::SolutionID;
 use tokio_postgres::NoTls;
 use tracing::warn;
+
+use crate::N;
 
 pub struct DB {
     connection_pool: Pool,
@@ -55,7 +56,7 @@ impl DB {
                 client
                     .simple_query(&format!("set search_path = {}", schema))
                     .await
-                    .map_err(|e| HookError::Abort(HookErrorCause::Backend(e)))?;
+                    .map_err(|e| HookError::Backend(e))?;
                 Ok(())
             })
         }))
@@ -65,18 +66,14 @@ impl DB {
         DB { connection_pool: pool }
     }
 
-    pub async fn save_solution(
-        &self,
-        commitment: PuzzleCommitment<Testnet3>,
-        shares: HashMap<String, u64>,
-    ) -> Result<()> {
+    pub async fn save_solution(&self, solution_id: SolutionID<N>, shares: HashMap<String, u64>) -> Result<()> {
         let mut conn = self.connection_pool.get().await?;
         let transaction = conn.transaction().await?;
 
         let solution_id: i32 = transaction
             .query_one(
-                "INSERT INTO solution (commitment) VALUES ($1) RETURNING id",
-                &[&commitment.to_string()],
+                "INSERT INTO solution (solution_id) VALUES ($1) RETURNING id",
+                &[&solution_id.to_string()],
             )
             .await?
             .try_get("id")?;

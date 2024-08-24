@@ -1,10 +1,12 @@
-# Aleo Mining Pool Server
+# Aleo Proving Pool Server
 
 ## Introduction
 
-A mining pool server for the Aleo network.
+A Proving pool server for the Aleo network.
 
 ## Why a Standalone Server?
+
+> This is explaining why this project was created during Testnet2 period.
 
 1. I want to separate the mining pool part from the network node as ledger syncing sometimes interferes with the mining pool operations.
 2. I want to use a more efficient network protocol for pool - miner communication. 
@@ -42,7 +44,7 @@ Don't use unless you know what you're doing for now.
 
 ### System requirements
 
-- Rust 1.59+ (Not sure what's strictly required)
+- Rust 1.77+ (Not sure what's strictly required)
 
 Optional:
 

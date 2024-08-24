@@ -11,11 +11,7 @@ use aleo_stratum::{
 use anyhow::{anyhow, Result};
 use futures_util::SinkExt;
 use semver::Version;
-use snarkvm::{
-    console::account::address::Address,
-    prelude::{Environment, FromBytes, Testnet3},
-};
-use snarkvm_algorithms::polycommit::kzg10::{KZGCommitment, KZGProof};
+use snarkvm::console::account::Address;
 use tokio::{
     net::TcpStream,
     sync::mpsc::{channel, Sender},
@@ -26,11 +22,11 @@ use tokio_stream::StreamExt;
 use tokio_util::codec::Framed;
 use tracing::{error, info, trace, warn};
 
-use crate::server::ServerMessage;
+use crate::{server::ServerMessage, N};
 
 pub struct Connection {
     user_agent: String,
-    address: Option<Address<Testnet3>>,
+    address: Option<Address<N>>,
     version: Version,
     last_received: Option<Instant>,
 }
@@ -46,7 +42,7 @@ impl Connection {
         stream: TcpStream,
         peer_addr: SocketAddr,
         server_sender: Sender<ServerMessage>,
-        pool_address: Address<Testnet3>,
+        pool_address: Address<N>,
     ) {
         task::spawn(Connection::run(stream, peer_addr, server_sender, pool_address));
     }
@@ -55,7 +51,7 @@ impl Connection {
         stream: TcpStream,
         peer_addr: SocketAddr,
         server_sender: Sender<ServerMessage>,
-        pool_address: Address<Testnet3>,
+        pool_address: Address<N>,
     ) {
         let mut framed = Framed::new(stream, StratumCodec::default());
 
@@ -122,7 +118,7 @@ impl Connection {
                         trace!("Received message {} from peer {:?}", msg.name(), peer_addr);
                         conn.last_received = Some(Instant::now());
                         match msg {
-                            StratumMessage::Submit(id, _worker_name, job_id, nonce, commitment, proof) => {
+                            StratumMessage::Submit(id, _worker_name, job_id, counter) => {
                                 let job_bytes = hex::decode(job_id.clone());
                                 if job_bytes.is_err() {
                                     warn!("Failed to decode job_id {} from peer {:?}", job_id, peer_addr);
@@ -133,33 +129,13 @@ impl Connection {
                                     break;
                                 }
                                 let epoch_number = u32::from_le_bytes(job_bytes.unwrap().try_into().unwrap());
-                                let nonce_bytes = hex::decode(nonce.clone());
-                                if nonce_bytes.is_err() {
-                                    warn!("Failed to decode nonce {} from peer {:?}", nonce, peer_addr);
+                                let counter_bytes = hex::decode(counter.clone());
+                                if counter_bytes.is_err() {
+                                    warn!("Failed to decode counter {} from peer {:?}", counter, peer_addr);
                                     break;
                                 }
-                                let nonce = u64::from_le_bytes(nonce_bytes.unwrap().try_into().unwrap());
-                                let commitment_bytes = hex::decode(commitment.clone());
-                                if commitment_bytes.is_err() {
-                                    warn!("Failed to decode commitment {} from peer {:?}", commitment, peer_addr);
-                                    break;
-                                }
-                                let commitment = KZGCommitment::<<Testnet3 as Environment>::PairingCurve>::from_bytes_le(&commitment_bytes.unwrap()[..]);
-                                if commitment.is_err() {
-                                    warn!("Invalid commitment from peer {:?}", peer_addr);
-                                    break;
-                                }
-                                let proof_bytes = hex::decode(proof.clone());
-                                if proof_bytes.is_err() {
-                                warn!("Failed to decode proof {} from peer {:?}", proof, peer_addr);
-                                    break;
-                                }
-                                let proof = KZGProof::<<Testnet3 as Environment>::PairingCurve>::from_bytes_le(&proof_bytes.unwrap());
-                                if proof.is_err() {
-                                    warn!("Invalid proof from peer {:?}", peer_addr);
-                                    break;
-                                }
-                                if let Err(e) = server_sender.send(ServerMessage::ProverSubmit(id, peer_addr, epoch_number, nonce, commitment.unwrap(), proof.unwrap())).await {
+                                let counter = u64::from_le_bytes(counter_bytes.unwrap().try_into().unwrap());
+                                if let Err(e) = server_sender.send(ServerMessage::ProverSubmit(id, peer_addr, epoch_number, counter)).await {
                                     error!("Failed to send ProverSubmit message to server: {}", e);
                                 }
                             }
@@ -257,14 +233,14 @@ impl Connection {
         }
     }
 
-    pub async fn authorize(framed: &mut Framed<TcpStream, StratumCodec>) -> Result<Address<Testnet3>> {
+    pub async fn authorize(framed: &mut Framed<TcpStream, StratumCodec>) -> Result<Address<N>> {
         let peer_addr = framed.get_ref().peer_addr()?;
         match timeout(PEER_HANDSHAKE_TIMEOUT, framed.next()).await {
             Ok(Some(Ok(message))) => {
                 trace!("Received message {} from peer {:?}", message.name(), peer_addr);
                 match message {
                     StratumMessage::Authorize(id, address, _) => {
-                        let address = Address::<Testnet3>::from_str(address.as_str()).map_err(|e| {
+                        let address = Address::<N>::from_str(address.as_str()).map_err(|e| {
                             warn!("Invalid address {} from peer {:?}: {:?}", address, peer_addr, e);
                             e
                         })?;

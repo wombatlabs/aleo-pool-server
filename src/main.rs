@@ -1,8 +1,8 @@
 mod accounting;
 mod api;
 mod connection;
+mod prover_peer;
 mod server;
-mod validator_peer;
 
 #[cfg(feature = "db")]
 mod db;
@@ -14,37 +14,48 @@ use futures::stream::StreamExt;
 use rand::seq::SliceRandom;
 use signal_hook::consts::{SIGABRT, SIGHUP, SIGINT, SIGQUIT, SIGTERM, SIGTSTP, SIGUSR1};
 use signal_hook_tokio::Signals;
-use snarkvm::{console::account::address::Address, prelude::Testnet3};
+use snarkvm::console::{network::MainnetV0, types::Address};
 use tokio::sync::mpsc::Sender;
 use tracing::{debug, error, info, warn};
 use tracing_log::{log, LogTracer};
 use tracing_subscriber::{layer::SubscriberExt, EnvFilter};
 
-use crate::validator_peer::Node;
+use crate::prover_peer::Node;
 use crate::{
     accounting::{Accounting, AccountingMessage},
     //    operator_peer::Node,
     server::{Server, ServerMessage},
 };
 
-#[derive(Debug, Parser)]
-#[clap(name = "pool_server", about = "Aleo mining pool server")]
-struct Opt {
-    /// Validator node address
-    #[clap(short, long)]
-    validator: Option<String>,
+pub(crate) type N = MainnetV0;
 
-    /// Mining pool address
+#[derive(Debug, Parser)]
+#[clap(name = "pool_server", about = "Aleo proving pool server")]
+struct Opt {
+    /// snarkOS node address
     #[clap(short, long)]
-    address: Address<Testnet3>,
+    node: Option<String>,
+
+    /// Proving pool address (aleo1...)
+    #[clap(short, long)]
+    address: Address<N>,
 
     /// Port to listen for incoming provers
     #[clap(short, long)]
     port: u16,
 
     /// API port
-    #[clap(short, long = "api-port")]
+    #[clap(long = "api-port")]
     api_port: u16,
+
+    /// AleoScan API URL root\n
+    /// Mandatory if db feature is enabled, used to check if solution is on network
+    #[clap(short, long = "aleoscan-url")]
+    explorer_url: Option<String>,
+
+    /// Genesis block path for testing
+    #[clap(long)]
+    genesis_block: Option<String>,
 
     /// Enable debug logging
     #[clap(short, long)]
@@ -101,35 +112,25 @@ async fn main() {
         .build_global()
         .unwrap();
 
-    let validator = match opt.validator {
-        Some(validator) => validator,
-        None => {
-            let bootstrap = [
-                "164.92.111.59:4133",
-                "159.223.204.96:4133",
-                "167.71.219.176:4133",
-                "157.245.205.209:4133",
-                "134.122.95.106:4133",
-                "161.35.24.55:4133",
-                "138.68.103.139:4133",
-                "207.154.215.49:4133",
-                "46.101.114.158:4133",
-                "138.197.190.94:4133",
-            ];
-            bootstrap.choose(&mut rand::thread_rng()).unwrap().to_string()
-        }
-    };
+    let validator = opt.node.unwrap_or_else(|| {
+        let bootstrap = [
+            "node1.mainnet.aleoscan.org:4130",
+            "node2.mainnet.aleoscan.org:4130",
+            "node3.mainnet.aleoscan.org:4130",
+        ];
+        bootstrap.choose(&mut rand::thread_rng()).unwrap().to_string()
+    });
     let port = opt.port;
 
     let address = opt.address;
 
-    let accounting = Accounting::init();
+    let accounting = Accounting::init(opt.explorer_url);
 
     let node = Node::init(validator);
 
     let server = Server::init(port, address, node.sender(), accounting.sender()).await;
 
-    validator_peer::start(node, server.sender());
+    prover_peer::start(node, server.sender(), opt.genesis_block);
 
     api::start(opt.api_port, accounting.clone(), server.clone());
 

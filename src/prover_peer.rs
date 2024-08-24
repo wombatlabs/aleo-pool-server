@@ -1,4 +1,5 @@
 use std::{
+    str::FromStr,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -9,10 +10,9 @@ use std::{
 use futures_util::sink::SinkExt;
 use rand::{rngs::OsRng, Rng};
 use snarkos_account::Account;
-use snarkos_node_messages::{
+use snarkos_node_router_messages::{
     ChallengeRequest,
     ChallengeResponse,
-    Data,
     MessageCodec,
     NodeType,
     Ping,
@@ -20,10 +20,8 @@ use snarkos_node_messages::{
     PuzzleRequest,
     PuzzleResponse,
 };
-use snarkvm::{
-    prelude::{FromBytes, Network, Testnet3},
-    synthesizer::Block,
-};
+use snarkvm::prelude::{Block, Field, FromBytes, Network};
+use snarkvm_ledger_narwhal_data::Data;
 use tokio::{
     net::TcpStream,
     sync::{
@@ -38,7 +36,7 @@ use tokio_stream::StreamExt;
 use tokio_util::codec::Framed;
 use tracing::{debug, error, info, trace, warn};
 
-use crate::ServerMessage;
+use crate::{ServerMessage, N};
 
 pub struct Node {
     operator: String,
@@ -46,7 +44,7 @@ pub struct Node {
     receiver: Arc<Mutex<Receiver<SnarkOSMessage>>>,
 }
 
-pub(crate) type SnarkOSMessage = snarkos_node_messages::Message<Testnet3>;
+pub(crate) type SnarkOSMessage = snarkos_node_router_messages::Message<N>;
 
 impl Node {
     pub fn init(operator: String) -> Self {
@@ -67,13 +65,17 @@ impl Node {
     }
 }
 
-pub fn start(node: Node, server_sender: Sender<ServerMessage>) {
+pub fn start(node: Node, server_sender: Sender<ServerMessage>, genesis_path: Option<String>) {
     let receiver = node.receiver();
     let sender = node.sender();
     task::spawn(async move {
-        let genesis_header = *Block::<Testnet3>::from_bytes_le(Testnet3::genesis_bytes())
-            .unwrap()
-            .header();
+        let genesis_header = match genesis_path {
+            Some(path) => {
+                let bytes = std::fs::read(path).unwrap();
+                *Block::<N>::from_bytes_le(&bytes).unwrap().header()
+            }
+            None => *Block::<N>::from_bytes_le(N::genesis_bytes()).unwrap().header(),
+        };
         let connected = Arc::new(AtomicBool::new(false));
         let peer_sender = sender.clone();
         let peer_sender_ping = sender.clone();
@@ -116,8 +118,7 @@ pub fn start(node: Node, server_sender: Sender<ServerMessage>) {
                 Ok(socket) => match socket {
                     Ok(socket) => {
                         info!("Connected to {}", node.operator);
-                        let mut framed: Framed<TcpStream, MessageCodec<Testnet3>> =
-                            Framed::new(socket, Default::default());
+                        let mut framed: Framed<TcpStream, MessageCodec<N>> = Framed::new(socket, Default::default());
                         let challenge = SnarkOSMessage::ChallengeRequest(ChallengeRequest {
                             version: SnarkOSMessage::VERSION,
                             listener_port: 4140,
@@ -155,14 +156,17 @@ pub fn start(node: Node, server_sender: Sender<ServerMessage>) {
                                                     sleep(Duration::from_secs(25)).await;
                                                     break;
                                                 }
-                                                if node_type != NodeType::Beacon && node_type != NodeType::Validator {
+                                                if node_type != NodeType::Validator && node_type != NodeType::Client {
                                                     error!("Peer is not a beacon or validator");
                                                     sleep(Duration::from_secs(25)).await;
                                                     break;
                                                 }
+                                                let resp_nonce: u64 = rng.gen();
                                                 let response = SnarkOSMessage::ChallengeResponse(ChallengeResponse {
                                                     genesis_header,
-                                                    signature: Data::Object(random_account.sign_bytes(&nonce.to_le_bytes(), rng).unwrap()),
+                                                    restrictions_id: Field::<N>::from_str("0field").unwrap(),
+                                                    signature: Data::Object(random_account.sign_bytes(&[nonce.to_le_bytes(), resp_nonce.to_le_bytes()].concat(), rng).unwrap()),
+                                                    nonce: resp_nonce,
                                                 });
                                                 if let Err(e) = framed.send(response).await {
                                                     error!("Error sending challenge response: {:?}", e);
@@ -207,7 +211,7 @@ pub fn start(node: Node, server_sender: Sender<ServerMessage>) {
                                                 }
                                             }
                                             SnarkOSMessage::PuzzleResponse(PuzzleResponse {
-                                                epoch_challenge, block_header
+                                                epoch_hash, block_header
                                             }) => {
                                                 let block_header = match block_header.deserialize().await {
                                                     Ok(block_header) => block_header,
@@ -218,13 +222,13 @@ pub fn start(node: Node, server_sender: Sender<ServerMessage>) {
                                                         break;
                                                     }
                                                 };
-                                                let epoch_number = epoch_challenge.epoch_number();
-                                                if let Err(e) = server_sender.send(ServerMessage::NewEpochChallenge(
-                                                    epoch_challenge, block_header.proof_target()
+                                                let epoch_number = block_header.metadata().height() / N::NUM_BLOCKS_PER_EPOCH;
+                                                if let Err(e) = server_sender.send(ServerMessage::NewEpochHash(
+                                                    epoch_hash, epoch_number, block_header.proof_target()
                                                 )).await {
-                                                    error!("Error sending new block template to pool server: {}", e);
+                                                    error!("Error sending new epoch hash to pool server: {}", e);
                                                 } else {
-                                                    trace!("Sent new epoch challenge {} to pool server", epoch_number);
+                                                    trace!("Sent new epoch hash to pool server (epoch {})", epoch_number);
                                                 }
                                             }
                                             SnarkOSMessage::Disconnect(message) => {

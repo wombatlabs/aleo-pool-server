@@ -1,7 +1,7 @@
 use std::{convert::Infallible, net::SocketAddr, sync::Arc};
 
 use serde_json::json;
-use snarkvm::{console::account::address::Address, prelude::Testnet3};
+use snarkvm::console::account::Address;
 use tokio::task;
 use tracing::info;
 use warp::{
@@ -16,7 +16,7 @@ use warp::{
     Reply,
 };
 
-use crate::{Accounting, Server};
+use crate::{Accounting, Server, N};
 
 pub fn start(port: u16, accounting: Arc<Accounting>, server: Arc<Server>) {
     task::spawn(async move {
@@ -72,23 +72,23 @@ async fn pool_stats(server: Arc<Server>) -> Json {
 }
 
 async fn address_stats(address: String, server: Arc<Server>) -> impl Reply {
-    if let Ok(address) = address.parse::<Address<Testnet3>>() {
+    if let Ok(address) = address.parse::<Address<N>>() {
         let speed = server.address_speed(address).await;
         let prover_count = server.address_prover_count(address).await;
-        Ok(reply::with_status(
+        reply::with_status(
             json(&json!({
                 "online_provers": prover_count,
                 "speed": speed,
             })),
             warp::http::StatusCode::OK,
-        ))
+        )
     } else {
-        Ok(reply::with_status(
+        reply::with_status(
             json(&json!({
                 "error": "invalid address"
             })),
             warp::http::StatusCode::BAD_REQUEST,
-        ))
+        )
     }
 }
 
@@ -106,11 +106,8 @@ async fn admin_current_round(addr: Option<SocketAddr>, accounting: Arc<Accountin
     let addr = addr.unwrap();
     if addr.ip().is_loopback() {
         let pplns = accounting.current_round().await;
-        Ok(reply::with_status(json(&pplns), warp::http::StatusCode::OK))
+        reply::with_status(json(&pplns), warp::http::StatusCode::OK)
     } else {
-        Ok(reply::with_status(
-            json(&"Method Not Allowed"),
-            warp::http::StatusCode::METHOD_NOT_ALLOWED,
-        ))
+        reply::with_status(json(&"Method Not Allowed"), warp::http::StatusCode::METHOD_NOT_ALLOWED)
     }
 }

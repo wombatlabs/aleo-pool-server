@@ -14,10 +14,12 @@ db = [
 
 [dependencies]
 #snarkvm = { path = "../../src/snarkVM" }
-snarkvm = { git = "https://github.com/AleoNet/snarkVM.git", branch = "mainnet" }
-snarkvm-algorithms = { git = "https://github.com/AleoNet/snarkVM.git", branch = "mainnet" }
-snarkvm-curves = { git = "https://github.com/AleoNet/snarkVM.git", branch = "mainnet" }
-snarkvm-utilities = { git = "https://github.com/AleoNet/snarkVM.git", branch = "mainnet" }
+snarkvm = { git = "https://github.com/AleoNet/snarkVM.git", rev = "be171ce", features = ["test"] }
+snarkvm-algorithms = { git = "https://github.com/AleoNet/snarkVM.git", rev = "be171ce" }
+snarkvm-curves = { git = "https://github.com/AleoNet/snarkVM.git", rev = "be171ce" }
+snarkvm-utilities = { git = "https://github.com/AleoNet/snarkVM.git", rev = "be171ce" }
+snarkvm-ledger-narwhal-data = { git = "https://github.com/AleoNet/snarkVM.git", rev = "be171ce" }
+snarkvm-ledger-puzzle-epoch = { git = "https://github.com/AleoNet/snarkVM.git", rev = "be171ce" }
 #snarkvm = "0.9.13"
 #snarkvm-algorithms = "0.9.13"
 #snarkvm-curves = "0.9.13"
@@ -109,7 +111,7 @@ version = "4.5.16"
 features = ["derive"]
 
 [dev-dependencies]
-criterion= "0.5.1"
+criterion = "0.5.1"
 
 # testnet2 code, not updated to testnet3 so skip now
 #[[bench]]

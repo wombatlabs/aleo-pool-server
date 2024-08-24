@@ -14,7 +14,7 @@ use savefile::{load_file, save_file};
 use savefile_derive::Savefile;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use snarkvm::prelude::{PuzzleCommitment, Testnet3};
+use snarkvm::ledger::puzzle::SolutionID;
 use tokio::{
     sync::{
         mpsc::{channel, Sender},
@@ -30,6 +30,7 @@ use crate::db::DB;
 use crate::{
     accounting::AccountingMessage::{NewShare, NewSolution},
     AccountingMessage::{Exit, SetN},
+    N,
 };
 
 trait PayoutModel {
@@ -120,7 +121,7 @@ struct Null {}
 pub enum AccountingMessage {
     NewShare(String, u64),
     SetN(u64),
-    NewSolution(PuzzleCommitment<Testnet3>),
+    NewSolution(SolutionID<N>),
     Exit,
 }
 
@@ -131,6 +132,8 @@ static PAY_INTERVAL: Duration = Duration::from_secs(60);
 pub struct Accounting {
     pplns: Arc<TokioRwLock<PPLNS>>,
     #[cfg(feature = "db")]
+    explorer_url: String,
+    #[cfg(feature = "db")]
     database: Arc<DB>,
     sender: Sender<AccountingMessage>,
     round_cache: TokioRwLock<Cache<Null, (u32, HashMap<String, u64>)>>,
@@ -138,9 +141,14 @@ pub struct Accounting {
 }
 
 impl Accounting {
-    pub fn init() -> Arc<Accounting> {
+    pub fn init(explorer_url: Option<String>) -> Arc<Accounting> {
         #[cfg(feature = "db")]
         let database = Arc::new(DB::init());
+
+        #[cfg(feature = "db")]
+        if explorer_url.is_none() {
+            panic!("Explorer URL is required with db feature enabled");
+        }
 
         let pplns = Arc::new(TokioRwLock::new(PPLNS::load()));
 
@@ -148,6 +156,8 @@ impl Accounting {
 
         let accounting = Accounting {
             pplns,
+            #[cfg(feature = "db")]
+            explorer_url: explorer_url.unwrap(),
             #[cfg(feature = "db")]
             database,
             sender,
@@ -170,15 +180,15 @@ impl Accounting {
                         pplns.write().await.set_n(n);
                         debug!("Set N to {}", n);
                     }
-                    NewSolution(commitment) => {
+                    NewSolution(solution_id) => {
                         let pplns = pplns.read().await.clone();
                         let (_, address_shares) = Accounting::pplns_to_provers_shares(&pplns);
 
                         #[cfg(feature = "db")]
-                        if let Err(e) = database.save_solution(commitment, address_shares).await {
+                        if let Err(e) = database.save_solution(solution_id, address_shares).await {
                             error!("Failed to save block reward : {}", e);
                         } else {
-                            info!("Recorded solution {}", commitment);
+                            info!("Recorded solution {}", solution_id);
                         }
                     }
                     Exit => {
@@ -256,11 +266,11 @@ impl Accounting {
     }
 
     #[cfg(feature = "db")]
-    async fn check_solution(&self, commitment: &String) -> Result<bool> {
+    async fn check_solution(&self, solution_id: &String) -> Result<bool> {
         let client = reqwest::Client::new();
 
         let result = &client
-            .get(format!("http://127.0.0.1:8001/commitment?commitment={}", commitment))
+            .get(format!("{}/v2/solution/{}", self.explorer_url, solution_id))
             .send()
             .await?
             .json::<Value>()
@@ -269,14 +279,14 @@ impl Accounting {
         if is_valid {
             self.database
                 .set_solution_valid(
-                    commitment,
+                    solution_id,
                     true,
                     Some(result["height"].as_u64().ok_or_else(|| anyhow!("height"))? as u32),
                     Some(result["reward"].as_u64().ok_or_else(|| anyhow!("reward"))?),
                 )
                 .await?;
         } else {
-            self.database.set_solution_valid(commitment, false, None, None).await?;
+            self.database.set_solution_valid(solution_id, false, None, None).await?;
         }
         Ok(is_valid)
     }
