@@ -128,13 +128,20 @@ impl Connection {
                                     warn!("Invalid job_id {} from peer {:?}", job_id, peer_addr);
                                     break;
                                 }
-                                let epoch_number = u32::from_le_bytes(job_bytes.unwrap().try_into().unwrap());
-                                let counter_bytes = hex::decode(counter.clone());
-                                if counter_bytes.is_err() {
-                                    warn!("Failed to decode counter {} from peer {:?}", counter, peer_addr);
-                                    break;
-                                }
-                                let counter = u64::from_le_bytes(counter_bytes.unwrap().try_into().unwrap());
+                                let epoch_number = match job_bytes {
+                                    Ok(job_bytes) => {
+                                        if job_bytes.len() != 4 {
+                                            warn!("Invalid job_id {} from peer {:?}", job_id, peer_addr);
+                                            break;
+                                        }
+                                        u32::from_le_bytes(job_bytes.try_into().unwrap())
+                                    },
+                                    Err(e) => {
+                                        warn!("Failed to decode job_id {} from peer {:?}: {:?}", job_id, peer_addr, e);
+                                        break;
+                                    }
+                                };
+                                let counter = u64::from_str(counter.as_str()).unwrap();
                                 if let Err(e) = server_sender.send(ServerMessage::ProverSubmit(id, peer_addr, epoch_number, counter)).await {
                                     error!("Failed to send ProverSubmit message to server: {}", e);
                                 }
