@@ -93,7 +93,7 @@ impl DB {
 
     pub async fn set_solution_valid(
         &self,
-        commitment: &String,
+        solution_id: &String,
         valid: bool,
         height: Option<u32>,
         reward: Option<u64>,
@@ -101,14 +101,14 @@ impl DB {
         let mut conn = self.connection_pool.get().await?;
         let transaction = conn.transaction().await?;
         let stmt = transaction
-            .prepare_cached("UPDATE solution SET valid = $1, checked = checked + 1 WHERE commitment = $2")
+            .prepare_cached("UPDATE solution SET valid = $1, checked = checked + 1 WHERE solution_id = $2")
             .await?;
-        transaction.query(&stmt, &[&valid, commitment]).await?;
+        transaction.query(&stmt, &[&valid, solution_id]).await?;
         if valid {
             transaction
                 .query(
-                    "UPDATE solution SET height = $1, reward = $2 WHERE commitment = $3",
-                    &[&(height.unwrap() as i64), &(reward.unwrap() as i64), commitment],
+                    "UPDATE solution SET height = $1, reward = $2 WHERE solution_id = $3",
+                    &[&(height.unwrap() as i64), &(reward.unwrap() as i64), solution_id],
                 )
                 .await?;
         }
@@ -129,8 +129,8 @@ impl DB {
             .into_iter()
             .map(|row| {
                 let id: i32 = row.get("id");
-                let commitment: String = row.get("commitment");
-                (id, commitment)
+                let solution_id: String = row.get("solution_id");
+                (id, solution_id)
             })
             .collect())
     }

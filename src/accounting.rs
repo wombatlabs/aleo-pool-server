@@ -301,8 +301,8 @@ impl Accounting {
                 sleep(PAY_INTERVAL).await;
                 continue;
             }
-            for (id, commitment) in blocks.unwrap() {
-                let valid = self.check_solution(&commitment).await;
+            for (id, solution_id) in blocks.unwrap() {
+                let valid = self.check_solution(&solution_id).await;
                 if valid.is_err() {
                     error!("Unable to check solution: {}", valid.unwrap_err());
                     sleep(PAY_INTERVAL).await;
@@ -312,7 +312,7 @@ impl Accounting {
                 if valid {
                     match self.database.pay_solution(id).await {
                         Ok(_) => {
-                            info!("Paid solution {}", commitment);
+                            info!("Paid solution {}", solution_id);
                         }
                         Err(e) => {
                             error!("Unable to pay solution {}: {}", id, e);
