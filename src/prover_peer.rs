@@ -177,13 +177,7 @@ pub fn start(node: Node, server_sender: Sender<ServerMessage>, genesis_path: Opt
                                             SnarkOSMessage::ChallengeResponse(message) => {
                                                 match message.genesis_header == genesis_header {
                                                     true => {
-                                                        let was_connected = connected.load(Ordering::SeqCst);
-                                                        connected.store(true, Ordering::SeqCst);
-                                                        if !was_connected {
-                                                            if let Err(e) = sender.send(SnarkOSMessage::PuzzleRequest(PuzzleRequest {})).await {
-                                                                error!("Failed to send puzzle request: {}", e);
-                                                            }
-                                                        }
+                                                        info!("Peer has the same genesis block");
                                                     }
                                                     false => {
                                                         error!("Peer has a different genesis block");
@@ -208,6 +202,15 @@ pub fn start(node: Node, server_sender: Sender<ServerMessage>, genesis_path: Opt
                                                     error!("Error sending ping: {:?}", e);
                                                 } else {
                                                     debug!("Sent ping");
+                                                }
+                                            }
+                                            SnarkOSMessage::Pong(..) => {
+                                                let was_connected = connected.load(Ordering::SeqCst);
+                                                connected.store(true, Ordering::SeqCst);
+                                                if !was_connected {
+                                                    if let Err(e) = sender.send(SnarkOSMessage::PuzzleRequest(PuzzleRequest {})).await {
+                                                        error!("Failed to send puzzle request: {}", e);
+                                                    }
                                                 }
                                             }
                                             SnarkOSMessage::PuzzleResponse(PuzzleResponse {
