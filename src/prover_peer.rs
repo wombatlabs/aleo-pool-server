@@ -28,6 +28,7 @@ use tokio::{
         mpsc,
         mpsc::{Receiver, Sender},
         Mutex,
+        RwLock,
     },
     task,
     time::{sleep, timeout},
@@ -42,6 +43,7 @@ pub struct Node {
     operator: String,
     sender: Arc<Sender<SnarkOSMessage>>,
     receiver: Arc<Mutex<Receiver<SnarkOSMessage>>>,
+    pending_solutions: Arc<RwLock<Vec<SnarkOSMessage>>>,
 }
 
 pub(crate) type SnarkOSMessage = snarkos_node_router_messages::Message<N>;
@@ -53,6 +55,7 @@ impl Node {
             operator,
             sender: Arc::new(sender),
             receiver: Arc::new(Mutex::new(receiver)),
+            pending_solutions: Default::default(),
         }
     }
 
@@ -82,6 +85,7 @@ pub fn start(node: Node, server_sender: Sender<ServerMessage>, genesis_path: Opt
 
         let connected_req = connected.clone();
         let connected_ping = connected.clone();
+        let pending_req = node.pending_solutions.clone();
         task::spawn(async move {
             loop {
                 sleep(Duration::from_secs(15)).await;
@@ -89,6 +93,15 @@ pub fn start(node: Node, server_sender: Sender<ServerMessage>, genesis_path: Opt
                     if let Err(e) = peer_sender.send(SnarkOSMessage::PuzzleRequest(PuzzleRequest {})).await {
                         error!("Failed to send puzzle request: {}", e);
                     }
+                    let mut pending_solutions = pending_req.write().await.clone();
+                    let mut failed_solutions: Vec<SnarkOSMessage> = vec![];
+                    while let Some(message) = pending_solutions.pop() {
+                        if let Err(e) = peer_sender.send(message.clone()).await {
+                            failed_solutions.push(message);
+                            error!("Failed to send puzzle request: {}", e);
+                        }
+                    }
+                    pending_solutions.extend(failed_solutions);
                 }
             }
         });
@@ -135,9 +148,23 @@ pub fn start(node: Node, server_sender: Sender<ServerMessage>, genesis_path: Opt
                         loop {
                             tokio::select! {
                                 Some(message) = receiver.recv() => {
-                                    trace!("Sending {} to validator", message.name());
-                                    if let Err(e) = framed.send(message.clone()).await {
-                                        error!("Error sending {}: {:?}", message.name(), e);
+                                    match message {
+                                        SnarkOSMessage::UnconfirmedSolution(..) => {
+                                            if connected.load(Ordering::SeqCst) {
+                                                trace!("Sending {} to validator", message.name());
+                                                if let Err(e) = framed.send(message.clone()).await {
+                                                    error!("Error sending {}: {:?}", message.name(), e);
+                                                }
+                                            } else {
+                                                node.pending_solutions.write().await.push(message);
+                                            }
+                                        }
+                                        _ => {
+                                            trace!("Sending {} to validator", message.name());
+                                            if let Err(e) = framed.send(message.clone()).await {
+                                                error!("Error sending {}: {:?}", message.name(), e);
+                                            }
+                                        }
                                     }
                                 }
                                 result = framed.next() => match result {
