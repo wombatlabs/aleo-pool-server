@@ -51,6 +51,21 @@ Optional:
 - PostgreSQL 11+ (Still not sure what's strictly required)
 - PL/Python 3.6+
 
+## Compile
+<details>
+```
+mkdir aleo
+cd aleo
+git clone https://github.com/xiaoyu1998/cactus-timer.git --recursive 
+git clone https://github.com/xiaoyu1998/snarkVM.git --recursive 
+git clone https://github.com/xiaoyu1998/aleo-pool-server.git --recursive
+cd aleo-pool-server
+git checkout testnet3-new
+cargo build 
+./target/debug/aleo-pool-server --address ALEO_WALLET_ADDRESS --port 6688 --api-port 8888
+```
+</details>
+
 ## License
 
 AGPL-3.0-or-later
